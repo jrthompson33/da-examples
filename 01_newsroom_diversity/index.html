@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+  .header {
+    width: 100%;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-justify-content: center;
+    justify-content: center;
+    margin-bottom: 21px;
+    max-width: 1000px;
+    margin: 0 auto;
+    margin-top: 18px;
+    margin-bottom: 18px;
+    position: relative;
+    pointer-events: all;
+  }
+  .chart-container {
+    position: relative;
+    margin: 0 auto;
+  }
+  .stepper-item-container {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+    margin-left: 15px;
+    line-height: 23px;
+    position: relative;
+    /* transform: translate(calc(-32px),0px); */
+    -webkit-order: 3;
+    order: 3;
+  }
+  .stepper-item-container .stepper-item:first-of-type {
+    /* padding-left: 0px; */
+    border-top-left-radius: 3px;
+    border-bottom-left-radius: 3px;
+  }
+  .stepper-item {
+    cursor: hand;
+    cursor: pointer;
+    opacity: 1;
+    font-size: 11.5px;
+    font-weight: 400;
+    position: relative;
+    line-height: 17px;
+    /* margin-top: 3px; */
+    color: #9a9a9a;
+    padding-left: 4px;
+    text-transform: capitalize;
+    /* text-decoration: underline; */
+    position: relative;
+    border: 1px solid rgba(127, 125, 156, 0.29);
+    line-height: 23px;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    font-size: 12px;
+    padding: 0 7px;
+    margin-left: -13px;
+    background: white;
+    margin-right: 10px;
+    color: black;
+  }
+  .stepper-item-selected {
+    color: black;
+    opacity: 1;
+    font-weight: 600;
+    text-decoration: none;
+    font-weight: 500;
+    background-color: #F5F5F5;
+    color: black;
+    box-shadow: inset 0 3px 5px rgba(0,0,0,.125);
+    border-color: #dad9e3;
+  }
+  .stepper-item:last-of-type {
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+  }
+</style>
+<body>
+<link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Open+Sans" />
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap-theme.min.css" integrity="sha384-6pzBo3FDv/PJ8r2KRkGHifhEocL+1X2rVCTTkUfGk7/0pbek5mMa1upzvWbrUbOZ" crossorigin="anonymous">
+
+<main>
+  <div class="col-md-12" id="title-header">
+    <div class="header">
+      <h1>How Diverse Are US Newsrooms?</h1>
+    </div>
+    <div class="header">
+      <div class="stepper-item-container" id="steppers"></div>
+    </div>
+  </div>
+  <div class="col-md-12 panel">
+    <div class="chart-container" id="vis">
+    </div>
+  </div>
+</main>
+
+<script src="https://d3js.org/d3.v5.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.4.1.min.js" integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo=" crossorigin="anonymous"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js" integrity="sha384-aJ21OjlMXNL5UyIl/XNwTMqvzeRMZH2w8c5cRVpzpU8Y5bApTppSuUkhZXN0VxHd" crossorigin="anonymous"></script>
+<script>
+
+const width = 1000,
+    height = 600;
+
+let activeChart = null;
+
+const cleanUp = (prev, curr) => {
+  let selector = prev[0].filter(s => curr[0].indexOf(s) < 0).join(',');
+  if(selector !== '') chartG.selectAll(selector).remove();
+  selector = prev[1].filter(s => curr[1].indexOf(s) < 0).join(',');
+  if(selector !== '') axisG.selectAll(selector).remove();
+  selector = prev[2].filter(s => curr[2].indexOf(s) < 0).join(',');
+  if(selector !== '') annotG.selectAll(selector).remove();
+}
+
+
+const drawSwarm = () => {
+  let ticks = [{'text': '80% Male Staff', 'value': 0.2, 'align': 'start'}, {'text': '70%', 'value': 0.3, 'align': 'middle'},{'text': '50/50 Split', 'value': 0.5, 'align': 'middle'},{'text': '70%', 'value': 0.7, 'align': 'middle'},{'text': '80% Female Staff', 'value': 0.8, 'align': 'end'}];
+  let annots = [{'text': 'More Women', 'align': 'end', 'value': 0.8}, {'text': 'More Men', 'align': 'start', 'value': 0.2}]
+  let color = d3.scaleLinear().range(['#2866f9', '#d8d8d8','#ed3334']).domain([0.2,0.5,0.8]);
+  let xScale = d3.scaleLinear().range([0,900]).domain([0.2,0.8]);
+
+  simulation = d3.forceSimulation(allData)
+      .force('y', d3.forceY(d => 0).strength(0.2))
+      .force('x', d3.forceX(d => xScale(d.female_staff['2018'])).strength(1))
+      .force('collide', d3.forceCollide(d => (d.radius+1)))
+      .stop();
+  let updateSimulation = () => {
+    for (let i = 0; i < 200; i++) simulation.tick();
+  };
+  updateSimulation();
+
+  // Draw Chart Components
+  transG.attr('transform', 'translate(50,200)')
+
+  let gSelect = chartG.selectAll('.news-room')
+    .data(allData, d => d.id);
+
+  let gEnter = gSelect.enter()
+    .append('g')
+    .attr('class', 'news-room');
+
+  let gMerge = gSelect.merge(gEnter);
+  gMerge.transition()
+    .duration(1e3)
+    .attr('transform', d => ('translate('+[d.x, d.y]+')'));
+
+  let select = gMerge.selectAll('.dot.dot-2018')
+    .data(d => [d]);
+  select.enter().append('circle')
+    .style('stroke', '#aaa')
+    .style('fill', d => color(d.female_staff['2018']))
+    .attr('class', 'dot dot-2018')
+    .attr('r', d => d.radius);
+
+  select.transition()
+    .duration(1e3)
+    .style('fill', d => color(d.female_staff['2018']))
+    .attr('r', d => d.radius)
+    .attr('cx', 0);
+
+  // Draw Axis & Legend Components
+  gSelect = axisG.selectAll('.domain')
+    .data([0]);
+  gEnter = gSelect.enter().append('path')
+    .attr('class', 'domain')
+    .attr('d', 'M0,0h900')
+    .style('stroke', '#ccc')
+    .style('stroke-width', 1);
+  gMerge = gSelect.merge(gEnter)
+    .transition()
+    .duration(1e3)
+    .attr('d', 'M0,0h900')
+    .style('stroke', '#ccc')
+    .style('stroke-width', 1);
+
+  gSelect = axisG.selectAll('.tick.x')
+    .data(ticks);
+
+  gEnter = gSelect.enter()
+    .append('g').attr('class', 'tick x')
+    .attr('transform', d => 'translate('+[xScale(d.value), -130]+')');
+
+  gEnter.append('text')
+    .style('text-anchor', d => d.align)
+    .style('font-weight', 600)
+    .style('fill', d => (d.value == 0.5 ? '#999' : color(d.value)))
+    .text(d => d.text);
+
+  gEnter.append('path')
+    .attr('d', d => (d.value == 0.5 ? 'M0,8v130' : 'M0,8v10'))
+    .style('stroke', d => color(d.value))
+    .style('stroke-width', 2);
+
+  // Draw Annotation Components
+  select = annotG.selectAll('.chart-title')
+    .data(['NEWSROOM GENDER BREAKDOWN']);
+
+  let enter = select.enter().append('text')
+    .attr('class', 'chart-title')
+    .style('fill', '#333')
+    .style('font-weight', 600)
+    .style('font-size', '1.1em')
+    .style('text-anchor', 'middle')
+  enter.merge(select)
+    .attr('x', 450)
+    .attr('y', -170)
+    .text(t => t);
+
+  let averageG = annotG.append('g')
+    .attr('class', 'annotation average')
+    .attr('transform', 'translate('+[xScale(0.41), -90]+')');
+  averageG.append('text')
+    .attr('class', 'label')
+    .attr('dy', '-1.7em')
+    .style('text-anchor', 'middle')
+    .style('font-weight', 600)
+    .style('fill', '#555')
+    .text('AVERAGE');
+  averageG.append('text')
+    .attr('class', 'value')
+    .style('text-anchor', 'middle')
+    .style('fill', '#555')
+    .text('59% Male');
+  averageG.append('path')
+    .attr('d', 'M0,8v160')
+    .style('stroke', '#777')
+    .style('stroke-width', 2);
+  let arrowG = annotG.selectAll('.annotation.arrow.x')
+    .data(annots)
+    .enter().append('g')
+    .attr('class', 'annotation arrow x')
+    .attr('transform', d => ('translate('+[xScale(d.value), 36]+')'));
+  arrowG.append('path')
+    .attr('d', d => {
+      if (d.align == 'start') {
+        return 'M105,0h-90';
+      } else {
+        return 'M-105,0h90';
+      }
+    })
+    .style('stroke', '#ccc')
+    .style('stroke-width', 5)
+    .style('marker-end', 'url(#arrow-head)');
+  arrowG.append('text')
+    .attr('x', d => (d.align == 'start' ? 115 : - 115))
+    .attr('dy', '0.1em')
+    .style('text-anchor', d => d.align)
+    .style('fill', '#aaa')
+    .style('font-size', '14px')
+    .style('font-weight', 600)
+    .text(d => d.text);
+};
+
+const drawScatter = (prev, curr) => {
+  let ticks = [{'text': ['85% Leaders','are Women'], 'value': 0.85}, {'text': ['65% Female'], 'value': 0.65}, {'text': ['Leaders: 50-50','Male/Female'], 'value': 0.5},{'text': ['35% Female'], 'value': 0.35},{'text': ['15% Leaders','are Women'], 'value': 0.15}];
+  let xGrid = [0.3,0.4,0.5,0.6,0.7];
+  let yGrid = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9];
+  let annots = [{'text': 'More Women Staff', 'align': 'end', 'value': 0.8}, {'text': 'More Men Staff', 'align': 'start', 'value': 0.2}]
+  let color = d3.scaleLinear().range(['#2866f9', '#d8d8d8','#ed3334']).domain([0.2,0.5,0.8]);
+  let xScale = d3.scaleLinear().range([0,700]).domain([0.2,0.8]);
+  let yScale = d3.scaleLinear().range([0,450]).domain([1,0]);
+
+  // Draw Chart Components
+  transG.attr('transform', 'translate(150,60)')
+
+  let gSelect = chartG.selectAll('.news-room')
+    .data(allData, d => d.id);
+
+  let gEnter = gSelect.enter()
+    .append('g')
+    .attr('class', 'news-room');
+
+  let gMerge = gSelect.merge(gEnter);
+  gMerge.transition()
+    .duration(1e3)
+    .attr('transform', d => ('translate('+[xScale(d.female_staff['2018']), yScale(d.female_leaders_2018)]+')'));
+
+  let select = gMerge.selectAll('.dot.dot-2018')
+    .data(d => [d]);
+  select.enter().append('circle')
+    .style('stroke', '#aaa')
+    .style('fill', '#f9d62c')
+    .attr('class', 'dot dot-2018')
+    .attr('r', d => d.radius);
+
+  select.transition()
+    .duration(1e3)
+    .attr('cx', 0)
+    .style('stroke', '#aaa')
+    .style('fill', '#f9d62c')
+    .attr('r', d => d.radius);
+
+  // Draw Axis & Legend Components
+  gSelect = axisG.selectAll('.domain')
+    .data([0]);
+  gEnter = gSelect.enter().append('path')
+    .attr('class', 'domain')
+    .attr('d', 'M0,225h700')
+    .style('stroke', '#eee')
+    .style('stroke-width', 20);
+  gMerge = gSelect.merge(gEnter)
+    .transition()
+    .duration(1e3)
+    .attr('d', 'M0,225h700')
+    .style('stroke', '#eee')
+    .style('stroke-width', 20);
+
+  let gridSelect = axisG.selectAll('.grid.y')
+    .data(yGrid);
+  let gridEnter = gridSelect.enter()
+    .append('path')
+    .attr('class', 'grid y')
+    .style('stroke', '#aaa')
+    .style('stroke-linecap', 'round')
+    .style('stroke-dasharray', '1px,2px');
+  gridEnter.merge(gridSelect)
+    .attr('d', 'M0,0h700')
+    .attr('transform', t => 'translate('+[0, yScale(t)]+')');
+
+  gridSelect = axisG.selectAll('.grid.x')
+    .data(xGrid);
+  gridEnter = gridSelect.enter()
+    .append('path')
+    .attr('class', 'grid x')
+    .style('stroke', '#aaa')
+    .style('stroke-linecap', 'round')
+    .style('stroke-dasharray', '1px,2px');
+  gridEnter.merge(gridSelect)
+    .attr('d', 'M0,0v450')
+    .attr('transform', t => 'translate('+[xScale(t), 0]+')');
+
+  let tickSelect = axisG.selectAll('.tick.y')
+    .data(ticks);
+  let tickEnter = tickSelect.enter()
+    .append('text')
+    .attr('class', 'tick y')
+    .style('text-anchor', 'end')
+    .style('font-size', '13px')
+    .style('fill', '#333')
+    .attr('transform', t => ('translate('+[680, yScale(t.value)]+')'));
+  tickEnter.selectAll('tspan')
+    .data(t => t.text)
+    .enter().append('tspan')
+    .attr('x', 0)
+    .attr('dy', function(t,i) {
+      let l = this.parentNode.__data__.text.length;
+      if (l == 1) {
+        return '0.4em';
+      } else {
+        return(i == 0 ? '-0.3em': '1.2em');
+      }
+    })
+    .style('font-size', (t,i) => (i == 1 ? '0.9em' : '1em'))
+    .style('font-weight', (t,i) => (i == 1 ? '500' : '600'))
+    .text(t => t);
+
+
+  // Draw Annotation Components
+  select = annotG.selectAll('.chart-title')
+    .data(['NEWSROOM LEADERSHIP VS. STAFF']);
+
+  let enter = select.enter().append('text')
+    .attr('class', 'chart-title')
+    .style('fill', '#333')
+    .style('font-weight', 600)
+    .style('font-size', '1.1em')
+    .style('text-anchor', 'middle')
+  enter.merge(select)
+    .attr('x', 350)
+    .attr('y', -20)
+    .text(t => t);
+  select = annotG.selectAll('.annotation.arrow.x')
+    .data(annots);
+  enter = select.enter().append('g')
+    .attr('class', 'annotation arrow x');
+  merge = select.merge(enter);
+  merge.transition()
+    .attr('transform', d => ('translate('+[xScale(d.value), 450]+')'));
+  enter.append('path')
+    .attr('d', d => {
+      if (d.align == 'start') {
+        return 'M65,0h-50';
+      } else {
+        return 'M-65,0h50';
+      }
+    })
+    .style('stroke', '#ccc')
+    .style('stroke-width', 5)
+    .style('marker-end', 'url(#arrow-head)');
+  merge.select('path')
+    .transition()
+    .attr('d', d => {
+      if (d.align == 'start') {
+        return 'M65,0h-50';
+      } else {
+        return 'M-65,0h50';
+      }
+    });
+  enter.append('text')
+    .attr('dy', '0.1em')
+    .style('text-anchor', d => d.align)
+    .style('fill', '#aaa')
+    .style('font-size', '14px')
+    .style('font-weight', 600);
+  merge.select('text')
+    .transition()
+    .attr('x', d => (d.align == 'start' ? 75 : -75))
+    .text(d => d.text);
+
+};
+
+const drawDots = (prevSelector) => {
+  let ticks = [{'text': '80% Male', 'value': 0.2, 'align': 'start'}, {'text': '65%', 'value': 0.35, 'align': 'middle'}, {'text': '50/50 Split', 'value': 0.5, 'align': 'middle'},{'text': '65%', 'value': 0.65, 'align': 'middle'},{'text': '80% Female', 'value': 0.8, 'align': 'end'}];
+  let xScale = d3.scaleLinear().range([0,750]).domain([0.2,0.8]);
+  let h = 450 / 24;
+
+  // Draw Chart Components
+  transG.attr('transform', 'translate(150,80)')
+
+  let gSelect = chartG.selectAll('.news-room')
+    .data(setData, d => d.id);
+
+  let gEnter = gSelect.enter()
+    .append('g')
+    .attr('class', 'news-room');
+
+  let gMerge = gSelect.merge(gEnter);
+  gMerge.transition()
+    .attr('transform', (d,i) => ('translate('+[0, (i + (d.female_staff.diff > 0 ? 0 : 2))*h]+')'));
+
+  gSelect.exit().remove();
+
+  let select = gMerge.selectAll('.arrow')
+    .data(d => [d]);
+  select.enter().insert('path')
+    .attr('class', 'arrow')
+    .attr('d', d => {
+      let w = d.female_staff.diff > 0 ? 8 : -8;
+      let p = d.female_staff.diff > 0 ? 4 : -4;
+      let x = [xScale(d.female_staff['2001']), xScale(d.female_staff['2018']) - w - p];
+      return 'M'+x[0]+',0L'+x[1]+',-2v-2.5l'+w+',4.5l'+(-w)+',4.5v-2.5L'+x[0]+',0';
+    })
+    .style('fill', d => (d.female_staff.diff > 0 ? 'url(#gradient-right)' : 'url(#gradient-left)'));
+
+  select.transition().duration(1e3)
+    .attr('d', d => {
+      let w = d.female_staff.diff > 0 ? 8 : -8;
+      let p = d.female_staff.diff > 0 ? 4 : -4;
+      let x = [xScale(d.female_staff['2001']), xScale(d.female_staff['2018']) - w - p];
+      return 'M'+x[0]+',0L'+x[1]+',-2v-2.5l'+w+',4.5l'+(-w)+',4.5v-2.5L'+x[0]+',0';
+    })
+    .style('fill', d => (d.female_staff.diff > 0 ? 'url(#gradient-right)' : 'url(#gradient-left)'));
+
+  gMerge.append('text')
+    .style('fill', '#555')
+    .style('font-size', '11px')
+    .attr('text-anchor', 'end')
+    .attr('dy', '0.3em')
+    .attr('x', -10)
+    .text(d => d.altname);
+
+  gMerge.append('path')
+    .attr('class', 'gridline')
+    .style('stroke', '#aaa')
+    .style('stroke-linecap', 'round')
+    .style('stroke-dasharray', '1px,2px')
+    .attr('d', 'M-20,'+(h/2)+'h790');
+
+  select = gMerge.selectAll('.dot.dot-2018')
+    .data(d => [d]);
+  select.enter().append('circle')
+    .style('stroke', '#aaa')
+    .style('fill', '#f9d62c')
+    .attr('class', 'dot dot-2018')
+    .attr('cx', d => xScale(d.female_staff['2018']))
+    .attr('r', 4);
+  select.transition().duration(1e3)
+    .style('stroke', '#aaa')
+    .style('fill', '#f9d62c')
+    .attr('class', 'dot dot-2018')
+    .attr('cx', d => xScale(d.female_staff['2018']))
+    .attr('r', 4);
+
+  gMerge.append('circle')
+    .style('stroke', '#777')
+    .style('fill', '#888')
+    .attr('class', 'dot dot-2001')
+    .attr('cx', d => xScale(d.female_staff['2001']))
+    .attr('r', 4);
+
+
+  // Draw Axis & Legend Components
+  gSelect = axisG.selectAll('.tick.x')
+    .data(ticks, d => d.value);
+  gEnter = gSelect.enter()
+    .append('g').attr('class', 'tick x')
+    .attr('transform', d => 'translate('+[xScale(d.value), -h]+')');
+  gEnter.append('text')
+    .style('text-anchor', d => d.align)
+    .style('font-size', '11px')
+    .style('fill', '#999')
+    .text(d => d.text);
+  gEnter.append('path')
+    .attr('d', 'M0,2v464')
+    .style('stroke', '#ccc')
+    .style('stroke-width', 1);
+
+
+  // Draw Annotation Components
+  select = annotG.selectAll('.chart-title')
+    .data(['HOW NEWSROOMS CHANGED, 2001 vs. 2018']);
+
+  let enter = select.enter().append('text')
+    .attr('class', 'chart-title')
+    .style('fill', '#333')
+    .style('font-weight', 600)
+    .style('font-size', '1.1em')
+    .style('text-anchor', 'middle')
+  enter.merge(select)
+    .attr('x', 350)
+    .attr('y', -65)
+    .text(t => t);
+
+  select = annotG.selectAll('.group-header')
+    .data(['Gender Diversity Improved', 'Gender Diversity Dropped']);
+  enter = select.enter().append('g')
+    .attr('class', 'group-header')
+    .attr('transform', (d,i) => ('translate('+[-10, (i == 0 ? -h : h * 19)]+')'));
+  enter.append('text')
+    .style('fill', '#555')
+    .style('font-size', '11px')
+    .style('font-weight', '600')
+    .attr('text-anchor', 'end')
+    .attr('dy', '0.3em')
+    .text(d => d);
+  enter.append('path')
+    .attr('class', 'gridline')
+    .style('stroke', '#aaa')
+    .style('stroke-linecap', 'round')
+    .style('stroke-dasharray', '1px,2px')
+    .attr('d', 'M-130,'+(h/2)+'h910');
+
+  select = annotG.selectAll('.year-label')
+    .data(['Gender in 2001', 'Gender in 2018']);
+  enter = select.enter().append('g')
+    .attr('class', 'year-label')
+    .attr('transform', (d,i) => ('translate('+[ xScale(setData[0].female_staff[(i == 0 ? '2001' : '2018')]), -36]+')'));
+  enter.append('text')
+    .style('fill', (d,i) => (i == 0 ? '#888' : '#f9d62c'))
+    .style('font-size', '12px')
+    .style('font-weight', '600')
+    .attr('text-anchor', 'middle')
+    .text(d => d);
+  enter.append('path')
+    .style('stroke', (d,i) => (i == 0 ? '#888' : '#f9d62c'))
+    .style('stroke-width', 2)
+    .attr('d', 'M0,2v28');
+};
+
+const drawArrows = (prevSelector) => {
+  let ticks = [{'text': '80% Male', 'value': 0.2, 'align': 'start'}, {'text': '65%', 'value': 0.35, 'align': 'middle'}, {'text': '50/50 Split', 'value': 0.5, 'align': 'middle'},{'text': '65%', 'value': 0.65, 'align': 'middle'},{'text': '80% Female', 'value': 0.8, 'align': 'end'}];
+  let xScale = d3.scaleLinear().range([0,750]).domain([0.2,0.8]);
+  let h = 450 / 24;
+
+  // Draw Chart Components
+  transG.attr('transform', 'translate(150,80)');
+
+  haveDiff = allData.filter(d => !isNaN(d.female_staff.diff))
+    .sort((a,b) => (b.female_staff.diff - a.female_staff.diff))
+
+  let gSelect = chartG.selectAll('.news-room')
+    .data(haveDiff, d => d.id);
+
+  let gEnter = gSelect.enter()
+    .append('g')
+    .attr('class', 'news-room');
+
+  let gMerge = gSelect.merge(gEnter);
+  gMerge.transition()
+    .attr('transform', (d,i) => ('translate('+[0, i*5 + (d.female_staff.diff > 0 ? 0 : 70)]+')'));
+
+  let select = gMerge.selectAll('.arrow')
+    .data(d => [d]);
+  select.enter().insert('path')
+    .attr('class', 'arrow')
+    .attr('d', d => {
+      let w = d.female_staff.diff > 0 ? 8 : -8;
+      let p = d.female_staff.diff > 0 ? 4 : -4;
+      let x = [xScale(d.female_staff['2001']), xScale(d.female_staff['2018'])];
+      if (Math.abs(d.female_staff.diff) > 0.02) {
+        return 'M'+x[0]+',0L'+(x[1] - w - p)+',-2v-2.5l'+w+',4.5l'+(-w)+',4.5v-2.5L'+x[0]+',0';
+      } else {
+        return 'M'+(x[0]+x[1])/2+',-4.5l5.5,4.5l-5.5,4.5l-5.5,-4.5z';
+      }
+    })
+    .style('fill', d => (d.female_staff.diff > 0 ? 'url(#gradient-blue)' : 'url(#gradient-red)'));
+
+  select.transition().duration(1e3)
+    .attr('d', d => {
+      let w = d.female_staff.diff > 0 ? 8 : -8;
+      let p = d.female_staff.diff > 0 ? 4 : -4;
+      let x = [xScale(d.female_staff['2001']), xScale(d.female_staff['2018'])];
+      if (Math.abs(d.female_staff.diff) > 0.02) {
+        return 'M'+x[0]+',0L'+(x[1] - w - p)+',-2v-2.5l'+w+',4.5l'+(-w)+',4.5v-2.5L'+x[0]+',0';
+      } else {
+        return 'M'+(x[0]+x[1])/2+',-4.5l5.5,4.5l-5.5,4.5l-5.5,-4.5z';
+      }
+    })
+    .style('fill', d => (d.female_staff.diff > 0 ? 'url(#gradient-blue)' : 'url(#gradient-red)'));
+
+  // Draw Axis & Legend Components
+  gSelect = axisG.selectAll('.tick.x')
+    .data(ticks, d => d.value);
+  gEnter = gSelect.enter()
+    .append('g').attr('class', 'tick x')
+    .attr('transform', d => 'translate('+[xScale(d.value), -h]+')');
+  gEnter.append('text')
+    .style('text-anchor', d => d.align)
+    .style('font-size', '11px')
+    .style('fill', '#999')
+    .text(d => d.text);
+  gEnter.append('path')
+    .attr('d', 'M0,2v464')
+    .style('stroke', '#ccc')
+    .style('stroke-width', 1);
+
+};
+
+const charts = {
+  '2018_results': {
+    'key': '2018_results',
+    'title': '2018 Results',
+    'selectors': [['.news-room .dot-2018'],
+                  ['.domain','.tick.x'],
+                  ['.chart-title', '.annotation.average', '.annotation.arrow.x']],
+    'draw': drawSwarm,
+  },
+  'leadership': {
+    'key': 'leadership',
+    'title': 'Leadership',
+    'selectors': [['.news-room .dot-2018'],
+                  ['.domain','.grid.y', '.grid.x', '.tick.y'],
+                  ['.chart-title', '.annotation.arrow.x']],
+    'draw': drawScatter
+  },
+  '2001vs2018': {
+    'key': '2001vs2018',
+    'title': '2001 vs. 2018: Top Newsrooms',
+    'selectors': [['.news-room .arrow', '.news-room text', '.news-room .gridline', '.news-room .dot-2018', '.news-room .dot-2001'],
+                  ['.tick.x'],
+                  ['.chart-title', '.group-header', '.year-label']],
+    'draw': drawDots
+  },
+  'overall_change': {
+    'key': 'overall_change',
+    'title': 'Overall Change',
+    'selectors': [['.news-room .arrow'],
+                  ['.tick.x'],
+                  ['.chart-title']],
+    'draw': drawArrows
+  }
+};
+
+
+svg = d3.select('#vis')
+    .style('width', width+'px')
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height);
+
+transG = svg.append('g')
+    .attr('class', 'trans-group');
+axisG = transG.append('g')
+    .attr('class', 'axis-group');
+chartG = transG.append('g')
+    .attr('class', 'chart-group');
+annotG = transG.append('g')
+    .attr('class', 'annotation-group');
+
+defs = svg.append('defs');
+defs.append('marker')
+  .attr('id', 'arrow-head')
+  .attr('viewBox', '0 -5 10 10')
+  .attr('refX', 0)
+  .attr('refY', 0)
+  .attr('markerWidth', 5)
+  .attr('markerHeight', 3)
+  .attr('orient', 'auto')
+  .append('path')
+  .attr('d', 'M0,-5L10,0L0,5')
+  .style('fill', '#ccc');
+let gradients = [{'id': 'right', 'color': '#a7a7a7', 'x': [0,1]},
+                 {'id': 'left', 'color': '#a7a7a7', 'x': [1,0]},
+                 {'id': 'red', 'color': '#ed3334', 'x': [1,0]},
+                 {'id': 'blue', 'color': '#2866f9', 'x': [0,1]},
+                 {'id': 'black', 'color': '#222', 'x': [0,1]},
+                ];
+let grads = defs.selectAll('linearGradient')
+  .data(gradients)
+  .enter().append('linearGradient')
+  .attr('id', d => 'gradient-'+d.id)
+  .attr('x1', d => d.x[0])
+  .attr('x2', d => d.x[1])
+  .attr('y1', 0).attr('y2', 0);
+grads.append('stop')
+  .attr('stop-color', d => d.color)
+  .attr('stop-opacity', 0.15);
+grads.append('stop')
+  .attr('offset', '100%')
+  .attr('stop-color', d => d.color)
+  .attr('stop-opacity', 1);
+
+let steppers = d3.select('#steppers')
+  .selectAll('.stepper-item').data(Object.values(charts))
+  .enter().append('div')
+  .attr('class', d => ('stepper-item'+(d.key == '2018_results' ? ' stepper-item-selected' : '')))
+  .on('click', function(c) {
+    d3.select('.stepper-item-selected').classed('stepper-item-selected', false);
+    d3.select(this).classed('stepper-item-selected', true);
+    cleanUp(activeChart.selectors, c.selectors)
+    c.draw();
+    activeChart = c;
+  });
+
+steppers.append('span')
+  .attr('class', 'stepper-text')
+  .text(d => d.title)
+
+let drawChart = () => {
+  activeChart = charts['2018_results'];
+  activeChart.draw();
+};
+
+d3.csv('data/newsroom_diversity.csv',
+  (d) => {
+    return {
+      'company': d.Company,
+      'altname': d.AltName,
+      'sample_set': d.SampleSet == 'TRUE',
+      'id': d.NewsID,
+      'city': d.City,
+      'state': d.State,
+      'circ': d.Circ,
+      'census': {
+        'white': parseFloat(d.whiteCensus),
+        'black': parseFloat(d.blackCensus),
+        'hispanic': parseFloat(d.hispanicCensus),
+        'asian': parseFloat(d.asianCensus),
+        'female': parseFloat(d.femaleCensus)
+      },
+      'radius': parseFloat(d.radius),
+      'female_staff': {
+        '2001': parseFloat(d.female2001),
+        '2018': parseFloat(d.female2018),
+        'diff': parseFloat(d.femaleDiff)
+      },
+      'female_leaders_2018': parseFloat(d.femaleLeaders2018)
+    }
+  }).then(datum => {
+    allData = datum.sort((a,b) => (b.radius - a.radius));
+    setData = allData.filter(d => d.sample_set).sort((a,b) => (b.female_staff.diff - a.female_staff.diff));
+    drawChart();
+  });
+
+</script>
+</body>

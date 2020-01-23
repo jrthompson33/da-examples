@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+  .header {
+    width: 100%;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-justify-content: center;
+    justify-content: center;
+    margin-bottom: 21px;
+    max-width: 1000px;
+    margin: 0 auto;
+    margin-top: 18px;
+    margin-bottom: 18px;
+    position: relative;
+    pointer-events: all;
+  }
+  .axis text {
+    fill: #333;
+    font-weight: 300;
+    font-size: 10px;
+  }
+  .x.axis text {
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .x.axis .domain {
+    stroke: #333;
+    stroke-width: 2px;
+  }
+  .y.axis .domain,
+  .y.axis .tick line {
+    opacity: 0;
+  }
+  .year-line {
+    stroke: #ccc;
+    stroke-width: 1px;
+    fill: none;
+    opacity: 0.7;
+  }
+  .year-line.selected {
+    stroke: #7D93CA;
+    stroke-width: 4px;
+    opacity: 1;
+  }
+  .year-text {
+    opacity: 0;
+  }
+  .year-text.selected {
+    fill: #7D93CA;
+    text-anchor: start;
+    font-weight: 500;
+    opacity: 1;
+  }
+  .avg-line {
+    fill: none;
+    stroke: #CC6699;
+    stroke-width: 4px;
+    stroke-miterlimit: 10;
+    stroke-linecap: round;
+  }
+  .avg-area {
+    fill: rgb(227, 192, 219);
+    opacity: 0.4;
+  }
+  :focus {
+    outline: none;
+  }
+  .chart-container {
+    position: relative;
+    margin: 0 auto;
+  }
+  #dropdowns {
+    margin: 0 auto;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-justify-content: flex-start;
+    justify-content: flex-start;
+    padding-bottom: 20px;
+  }
+  #dropdowns-container {
+    margin: 0 auto;
+    width: 90%;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-justify-content: flex-start;
+    justify-content: flex-start;
+    border-bottom: 1px solid #dadada;
+  }
+  .dd-title {
+    color: #000000;
+    top: 0px;
+    font-weight: 500;
+    font-size: 12px;
+    letter-spacing: .25px;
+    text-transform: uppercase;
+    margin-bottom: 7px;
+    text-align: left;
+  }
+  }
+  #counties, #states, #year {
+    position: relative;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+    position: relative;
+  }
+  .dd select {
+    font-size: 13px;
+    font-weight: 500;
+    color: black;
+    background-color: white;
+    border: none;
+    cursor: pointer;
+    cursor: hand;
+    border: 1px solid #b3b2c3;
+  }
+  #dropdown-a {
+    position: relative;
+    width: auto;
+    margin-right: 21px;
+  }
+  #dropdown-b {
+    margin-right: 31px;
+  }
+  #toggleouter {
+    z-index: 100;
+    margin-right: 14px;
+  }
+  #toggleouter .dd-title {
+    text-align: center;
+    width: 150px;
+  }
+  #dropdown-c {
+    width: auto;
+    text-align: center;
+    margin-right: 0px;
+  }
+  button.toggle.year {
+    font-size: 12px;
+    color: black;
+    background-color: white;
+    border: 1px solid rgba(127, 125, 156, 0.54);
+    width: 75px;
+    cursor: pointer;
+    cursor: hand;
+    margin-right: -4px;
+    border-bottom-left-radius: 5px;
+    border-top-left-radius: 5px;
+  }
+  button.toggle.average {
+    font-size: 12px;
+    color: black;
+    background-color: white;
+    border: 1px solid rgba(127, 125, 156, 0.54);
+    width: 75px;
+    cursor: pointer;
+    cursor: hand;
+    border-bottom-right-radius: 5px;
+    border-top-right-radius: 5px;
+  }
+  button.toggle.active {
+    box-shadow: rgba(0, 0, 0, 0.1) 0px 3px 5px inset;
+    border-color: rgba(14, 14, 14, 0.24);
+    background-color: rgba(243, 243, 243, 0.69);
+    cursor: pointer;
+    cursor: hand;
+  }
+</style>
+<body>
+<link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Open+Sans" />
+<link rel="stylesheet" href="vendor/bootstrap.css">
+<link rel="stylesheet" href="vendor/bootstrap-theme.css">
+
+<main>
+  <div class="col-md-12" id="title-header">
+    <div class="header">
+      <h1>The Timing of Baby Making</h1>
+    </div>
+    <div class="header">
+      <div id="dropdowns-container">
+        <div id="dropdowns" class="row">
+          <div id="dropdown-a">
+            <p class="dd-title state">State</p>
+            <div id="states" class="dd">
+              <select></select>
+            </div>
+          </div>
+          <div id="dropdown-b">
+            <p class="dd-title county">County</p>
+            <div id="counties" class="dd">
+              <select></select>
+            </div>
+          </div>
+
+          <div id="toggleouter">
+            <p class="dd-title data">View</p>
+            <div id="toggle" class="toggle">
+              <button class="toggle year active">Annual</button>
+              <button class="toggle average">Average</button>
+            </div>
+          </div>
+
+          <div id="dropdown-c" class="">
+            <p class="dd-title year">Year</p>
+            <div id="year" class="dd">
+              <select></select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-12 panel">
+    <div class="chart-container" id="vis">
+    </div>
+  </div>
+  <div id="icons">
+    <p class="dd-title events">Events</p>
+    <div class="icons" id="icon-a">
+      <svg width="28" height="28" viewBox="0 0 36 36">
+        <g id="icon-storms">
+          <path d="M12.5,22C6.8,24.3,4,19.8,4,17c0-2.8,2.3-5.1,5.1-5.1c0.4,0,0.7,0,1,0.1c0-0.1,0-0.2,0-0.3
+            c0-4.2,3.4-7.6,7.6-7.6c3.3,0,6.1,2.1,7.2,5C25.3,9.1,25.6,9,26,9c3.3,0,5.9,2.7,5.9,5.9c0,3.3-3.2,8.3-9.3,5.9"></path>
+          <polygon points="19,15.9 15.2,23.8 19,23.9 17.1,31.9 20.7,22 17.3,22.4"></polygon>
+        </g>
+      </svg>
+    </div>
+
+    <div class="icons current" id="icon-b">
+      <svg width="28" height="28" viewBox="0 0 36 36">
+        <g id="icon-hurricane">
+          <path d="M28.324,17.363 C29.05,22.905,25.21,33.321,3.413,31.57c-2.786-0.224,9.505-2.606,7.635-4.477c-3.134-3.133-3.714-6.959-3.354-9.73 C8.49,11.257,15.285,1.599,32.8,4.907c1.63,0.309-7.253,0.973-7.253,3.698S27.623,12.007,28.324,17.363z"></path>
+    <circle cx="17.994" cy="18.013" r="2.883"></circle>
+        </g>
+      </svg>
+    </div>
+
+    <div class="icons" id="icon-c">
+      <svg width="28" height="28" viewBox="0 0 36 36">
+        <g id="icon-snow">
+          <line x1="17.818" y1="16.595" x2="17.82" y2="5.912"></line>
+          <polyline points="22.411,7.591 17.851,12.15 13.292,7.591   "></polyline>
+          <circle cx="17.82" cy="4.456" r="1.456"></circle>
+          <line x1="16.019" y1="17.644" x2="6.559" y2="12.184"></line>
+          <polyline points="10.309,9.047 11.978,15.275 5.75,16.945   "></polyline>
+          <circle cx="5.298" cy="11.456" r="1.456"></circle>
+          <line x1="16.11" y1="19.834" x2="6.25" y2="25.525"></line>
+          <polyline points="5.408,20.709 11.637,22.378 9.969,28.606  "></polyline>
+          <circle cx="4.989" cy="26.253" r="1.456"></circle>
+          <line x1="17.851" y1="20.736" x2="17.851" y2="30.088"></line>
+          <polyline points="13.259,28.41 17.819,23.849 22.379,28.408   "></polyline>
+          <circle cx="17.851" cy="31.544" r="1.456"></circle>
+          <line x1="19.632" y1="19.655" x2="29.75" y2="25.497"></line>
+          <polyline points="26,28.634 24.331,22.405 30.558,20.735   "></polyline>
+          <path d="M30.281,27.486 c-0.694-0.403-0.933-1.293-0.532-1.99c0.403-0.696,1.293-0.935,1.988-0.533c0.699,0.402,0.937,1.292,0.534,1.989 C31.87,27.648,30.979,27.888,30.281,27.486z"></path>
+          <line x1="19.705" y1="17.829" x2="29.479" y2="12.184"></line>
+          <polyline points="30.321,17 24.092,15.331 25.76,9.103   "></polyline>
+          <circle cx="30.74" cy="11.457" r="1.456"></circle>
+          <path d="M19.89,18.666 c0,0.356-0.093,0.699-0.258,0.989c-0.343,0.633-1.016,1.068-1.781,1.081h-0.033c-0.706,0-1.333-0.356-1.708-0.902 c-0.23-0.33-0.363-0.739-0.363-1.168c0-0.369,0.099-0.719,0.271-1.022c0.355-0.627,1.028-1.049,1.8-1.049 c0.845,0,1.569,0.508,1.886,1.234C19.823,18.085,19.89,18.369,19.89,18.666z"></path>
+        </g>
+      </svg>
+    </div>
+
+    <div class="icons" id="icon-d">
+        <svg width="28" height="28" viewBox="0 0 36 36">
+          <g id="icon-football">
+              <path d="M29.9,6c2.4,2.4,1.7,12.8-4.7,19.2c-6.3,6.4-16.7,7.3-19.1,4.9c-2.4-2.4-1.8-12.6,4.7-19.2
+                C17.3,4.3,27.5,3.6,29.9,6z"></path>
+              <line x1="5.5" y1="20.4" x2="15.8" y2="30.5"></line>
+              <line x1="20.3" y1="5.4" x2="30.6" y2="15.5"></line>
+              <line x1="14.4" y1="21.6" x2="22.2" y2="13.7"></line>
+              <line x1="14.4" y1="18.7" x2="17.6" y2="21.9"></line>
+              <line x1="16.9" y1="16.2" x2="20.1" y2="19.4"></line>
+              <line x1="19.5" y1="13.6" x2="22.7" y2="16.8"></line>
+          </g>
+        </svg>
+    </div>
+
+    <div class="icons" id="icon-e">
+        <svg width="28" height="28" viewBox="0 0 36 36">
+          <g id="icon-baseball">
+            <path d="M29.95,14.364 c-1.017-3.339-3.409-6.241-6.847-7.778c-3.299-1.475-6.891-1.392-9.975-0.086"></path>
+            <path d="M6.182,22.037 c1.083,3.169,3.417,5.902,6.715,7.376c3.438,1.537,7.195,1.385,10.363-0.084"></path>
+            <path d="M13.128,6.5 c-2.81,1.189-5.199,3.392-6.542,6.397c-1.343,3.005-1.392,6.254-0.404,9.14"></path>
+            <path d="M23.26,29.329 c2.641-1.224,4.873-3.361,6.154-6.227c1.281-2.866,1.385-5.954,0.536-8.738"></path>
+            <path stroke-dasharray="0.886" d="M6.182,22.037 c3.644,0.161,7.184-1.872,8.763-5.403c1.578-3.532,0.733-7.525-1.816-10.133"></path>
+            <path stroke-dasharray="0.886" d="M22.794,29.465 c-2.549-2.609-3.395-6.603-1.816-10.133c1.579-3.532,5.119-5.565,8.763-5.405"></path>
+          </g>
+        </svg>
+    </div>
+
+
+    <div class="icons" id="icon-f">
+        <svg width="28" height="28" viewBox="0 0 36 36">
+          <g id="icon-terrorism">
+            <polyline points="1.9,31.8 5.9,28.9 0,24.6 7.8,22.9 5.8,12.7 13.2,16.8 19.5,4.2 21.5,18 26.9,14.8 26.9,21.4
+              36,22.4 28.6,28.5 30.6,31.8"></polyline>
+            <polyline points="10.4,31.8 12.4,29.8 10.4,26.1 12.4,26.1 11.4,21.2 16.1,23.1 18,18 18.7,24.9 22.3,22.9 22.3,26.1
+              24.5,26.3 22.6,28.5 25.6,31.8"></polyline>
+          </g>
+        </svg>
+    </div>
+
+    <div class="icons" id="icon-g">
+      <svg width="28" height="28" viewBox=" 0 0 36 36">
+        <g id="icon-money">
+          <path d="M24.357,12.935 c0-2.797-3.011-5.065-6.725-5.065s-6.725,2.268-6.725,5.065S13.919,18,17.633,18"></path>
+          <path d="M11.643,23.065 c0,2.797,3.012,5.065,6.725,5.065c3.714,0,6.725-2.268,6.725-5.065S22.081,18,18.367,18"></path>
+          <line x1="17.892" y1="5.5" x2="17.892" y2="30.5"></line>
+        </g>
+      </svg>
+    </div>
+  </div>
+</main>
+
+<script src="vendor/d3.min.js"></script>
+<script src="vendor/jquery.min.js"></script>
+<script src="vendor/bootstrap.min.js"></script>
+<script>
+
+const width = 840,
+    height = 600;
+
+let parseTime = d3.timeParse("%y%m");
+let parseYear = d3.timeFormat("%Y");
+let parseMonth = d3.timeFormat("%b");
+let parseTimeMonth = d3.timeParse("%b");
+let parseMonthOnly = d3.timeParse("%m");
+let parseMonthNum = d3.timeFormat("%m");
+
+let events = [
+  {
+    type: "sports",
+    year: 2005,
+    months: ["Jun", "Jul"],
+    title: "Red Sox World Series Win",
+    state: "Massachusetts",
+    county: 25025,
+    causeTitle: "Red Sox World Series Win",
+    causelabel: "In October 2004, the Boston Red Sox won the World Series for the first time since 1918. Did fans' celebrations result in an increase in babies 9 months later?",
+    causeX: 50,
+    causeY: height - 320,
+    causedX: 0,
+    causedY: 0,
+    resultTitle: "Red Sox Babies?",
+    resultlabel: "It doesn't look like it. The late summer of 2005 actually welcomed the fewest Boston babies.",
+    resultdX: 0,
+    resultdY: 50,
+  },
+  {
+    type: "storms",
+    year: 2013,
+    months: ["Jun", "Jul"],
+    title: "Hurricane Sandy",
+    state: "New York",
+    county: 36103,
+    causeTitle: "Hurricane",
+    causelabel: "When Hurricane Sandy hit the northeast US, around 8 million homes reportedly lost power. Did this cause a mini baby-boom 9 months later?",
+    causeX: 50,
+    causeY: height - 320,
+    causedX: 0,
+    causedY: 0,
+    resultTitle: "Hurricane Babies?",
+    resultlabel: "Probably not. The number of babies born in the affected areas 9 months later was just a little low for early summer.",
+    resultdX: 0,
+    resultdY: -50,
+  },
+  {
+    type: "storms",
+    year: 2006,
+    months: ["May", "Jun"],
+    title: "Hurricane Katrina",
+    state: "Louisiana",
+    county: 22071,
+    causeTitle: "Hurricane",
+    causelabel: "When Hurricane Katrina hit New Orleans, thousands of people had to leave the city. Was there an increase in births 9 months later?",
+    causeX: 50,
+    causeY: height - 320,
+    causedX: 0,
+    causedY: 0,
+    resultTitle: "Hurricane Babies?",
+    resultlabel: "It's hard to tell. This minor increase could be a result of increased conception during the storm or people slowly returning to the city.",
+    resultdX: 0,
+    resultdY: -100,
+  },
+  {
+    type: "sports",
+    year: 2014,
+    months: ["Oct", "Nov"],
+    title: "Seahawks Superbowl Win",
+    state: "Washington",
+    county: 53033,
+    causeTitle: "Seahawks Superbowl Win",
+    causelabel: "In 2013, the Seattle Seahawks won the Superbowl for the first time ever. Did celebrations cause more babies?",
+    causeX: 20,
+    causeY: height - 320,//-60,
+    causedX: 0,
+    causedY: 0,
+    resultTitle: "Superbowl Babies?",
+    resultlabel: "Probably not. The number of babies in Seattle 9 months later was just about average for the mid-fall.",
+    resultdX: -.005,
+    resultdY: 130,
+  },
+  {
+    type: "storms",
+    year: 1996,
+    months: ["Oct", "Nov"],
+    title: "Blizzard of 1996",
+    state: "Pennsylvania",
+    county: 42101,
+    causeTitle: "Blizzard of 1996",
+    causelabel: "In 1996, Philadelphia was buried in nearly 30 inches of snow in less than 24 hours. Did they welcome an increase in children 9 months later?",
+    causeX: 20,
+    causeY: height - 320,
+    causedX: 0,
+    causedY: 0,
+    resultTitle: "Blizzard Babies?",
+    resultlabel: "Probably not. The number of newborns seems to be about typical for early fall",
+    resultdX: -.005,
+    resultdY: 60,
+  },
+  {
+    type: "terror",
+    year: 1996,
+    months: ["Jan", "Feb"],
+    title: "Oklahoma City Bombing",
+    state: "Oklahoma",
+    county: 40109,
+    causeTitle: "Oklahoma City Bombing",
+    causelabel: "In 1995, Oklahoma City was home to a domestic terror attack. Did residents respond to the violence with a population increase?",
+    causeX: 20,
+    causeY: height - 320,
+    causedX: 0,
+    causedY: 0,
+    resultTitle: "Extra Babies?",
+    resultlabel: "It doesn't look like it. While the early months tend to have low birth counts in this area, 9 months after the attack saw the lowest.",
+    resultdX: 0,
+    resultdY: -70,
+  },
+  {
+    type: "other",
+    year: 2014,
+    months: ["Apr", "May"],
+    title: "Detroit Bankruptcy",
+    state: "Michigan",
+    county: 26163,
+    causeTitle: "Detroit Bankruptcy",
+    causelabel: "In July 2013, the city of Detroit filed for bankruptcy. Did this impact the number of babies born in the city 9 months later?",
+    causeX: 20,
+    causeY: height - 320,
+    causedX: 0,
+    causedY: 0,
+    resultTitle: "Bankruptcy Babies?",
+    resultlabel: "It's hard to tell. 2013 was a low year for Detroit births in general.",
+    resultdX: 0,
+    resultdY: -90,
+  }
+];
+
+let stateNameArray = [
+  ["Maine","ME",1,"Northeast",23],
+  ["Vermont","VT",2,"Northeast",50],
+  ["New Hampshire","NH",3,"Northeast",33],
+  ["Rhode Island","RI",4,"Northeast",44],
+  ["Massachusetts","MA",5,"Northeast",25],
+  ["Connecticut","CT",6,"Northeast",9],
+  ["Delaware","DE",7,"Northeast",10],
+  ["New Jersey","NJ",8,"Northeast",34],
+  ["New York","NY",9,"Northeast",36],
+  ["Pennsylvania","PA",10,"Northeast",42],
+  ["District of Columbia","DC",11,"Northeast",11],
+  ["Maryland","MD",12,"Northeast",24],
+  ["Virginia","VA",13,"South",51],
+  ["North Carolina","NC",14,"South",37],
+  ["South Carolina","SC",15,"South",45],
+  ["Georgia","GA",16,"South",13],
+  ["Alabama","AL",17,"South",1],
+  ["Mississippi","MS",18,"South",28],
+  ["Louisiana","LA",19,"South",22],
+  ["Arkansas","AR",20,"South",5],
+  ["Tennessee","TN",21,"South",47],
+  ["Kentucky","KY",22,"South",21],
+  ["West Virginia","WV",23,"South",54],
+  ["Oklahoma","OK",24,"Midwest",40],
+  ["Colorado","CO",25,"West",8],
+  ["Utah","UT",26,"West",49],
+  ["Idaho","ID",27,"West",16],
+  ["Wyoming","WY",28,"West",56],
+  ["Montana","MT",29,"West",30],
+  ["North Dakota","ND",30,"Midwest",38],
+  ["South Dakota","SD",31,"Midwest",46],
+  ["Nebraska","NE",32,"Midwest",31],
+  ["Kansas","KS",33,"Midwest",20],
+  ["Iowa","IA",34,"Midwest",19],
+  ["Minnesota","MN",35,"Midwest",27],
+  ["Wisconsin","WI",36,"Midwest",55],
+  ["Indiana","IN",37,"Midwest",18],
+  ["Missouri","MO",38,"Midwest",29],
+  ["Ohio","OH",39,"Midwest",39],
+  ["Michigan","MI",40,"Midwest",26],
+  ["Illinois","IL",41,"Midwest",17],
+  ["Florida","FL",42,"South",12],
+  ["California","CA",43,"West",6],
+  ["Nevada","NV",44,"West",32],
+  ["Texas","TX",45,"South",48],
+  ["Arizona","AZ",46,"West",4],
+  ["New Mexico","NM",47,"West",35],
+  ["Alaska","AK",48,"West",2],
+  ["Washington","WA",49,"West",53],
+  ["Oregon","OR",50,"West",41],
+  ["Hawaii","HI",51,"West",15],
+];
+
+let stateNameMap = d3.map(stateNameArray, d => d[4]);
+
+
+let margin = {r:60,l:60,t:40,b:120};
+margin.dx = margin.r + margin.l;
+margin.dy = margin.t + margin.b;
+let xScale = d3.scalePoint().range([0,width-margin.dx]).domain(['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']);
+let yScale = d3.scaleLinear().range([height-margin.dy,0]);
+let yAxis = d3.axisLeft(yScale).tickFormat(d3.format('~s'));
+let xAxis = d3.axisBottom(xScale);
+let lineFxn = d3.line().x(d => xScale(d.month)).y(d => yScale(d.births)).curve(d3.curveStep);
+let avgFxn = d3.line().x(d => xScale(d.month)).y(d => yScale(d.median)).curve(d3.curveStep);
+let areaHigh = d3.line().x(d => xScale(d.month)).y(d => yScale(d.high)).curve(d3.curveStep);
+let areaLow = d3.line().x(d => xScale(d.month)).y(d => yScale(d.low)).curve(d3.curveStep);
+let areaFxn = (d) => {
+  let lineHigh = areaHigh(d);
+  let lineLow = areaLow(d.slice().reverse());
+  lineLow = lineLow.replace('M','L');
+
+
+  console.log(lineLow)
+  return lineHigh+lineLow+'Z';
+}
+
+svg = d3.select('#vis')
+    .style('width', width+'px')
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height);
+
+transG = svg.append('g')
+    .attr('class', 'trans-group')
+    .attr('transform', 'translate('+[margin.l, margin.t]+')');
+axisG = transG.append('g')
+    .attr('class', 'axis-group');
+xAxisG = axisG.append('g')
+  .attr('class', 'axis x')
+  .attr('transform', 'translate('+[0,height-margin.dy+4]+')');
+xAxisG.call(xAxis);
+xAxisG.select('.domain')
+  .attr('d', 'M0,0h'+(width-margin.dx));
+xAxisG.selectAll('.tick line').remove();
+yAxisG = axisG.append('g')
+  .attr('class', 'axis y')
+  .attr('transform', 'translate('+[-10,0]+')');
+chartG = transG.append('g')
+    .attr('class', 'chart-group');
+annotG = transG.append('g')
+    .attr('class', 'annotation-group');
+
+
+
+
+// d3.select('#nav-buttons')
+//   .selectAll('button').data(Object.values(charts))
+//   .enter().append('button')
+//   .attr('class', 'btn')
+//   .text(c => c.title)
+//   .on('click', c => c.draw(allData, svg));
+
+let handleData = () => {
+  // Nest the data to create a line for each county and each year
+  nestData = d3.nest()
+    .key(d => d.county)
+    .rollup((leaves) => {
+      let extent = d3.extent(leaves, d => d.births);
+      let nest = d3.nest()
+        .key(d => d.year)
+        .entries(leaves);
+      return {'extent': extent, 'years': nest};
+    }).object(allData);
+
+  nestByYear = d3.nest()
+    .key(d => d.year)
+    .entries(allData);
+
+  nestStates = d3.nest()
+    .key(d => d.stateName)
+    .key(d => d.county)
+    .entries(stateCounty);
+
+  countyByState = d3.nest()
+    .key(d => d.stateName)
+    .rollup(leaves => {
+      leaves = leaves.filter(l => !isNaN(l.county)).map(l => l.countyName);
+      leaves.unshift('All Counties');
+      return leaves;
+    })
+    .object(stateCounty);
+
+  nestDataStates = d3.nest()
+    .key(d => d.states)
+    .rollup(leaves => {
+      let extent = d3.extent(leaves, d => d.births);
+      let nest = d3.nest()
+        .key(d => d.year)
+        .entries(leaves);
+      return {'extent': extent, 'years': nest};
+    }).object(stateData);
+
+  nestCountyAvg = d3.nest()
+    .key(d => d.county)
+    .object(countyAverages);
+
+    nestStateAvg = d3.nest()
+      .key(d => d.states)
+      .object(stateAverages);
+
+  countyMap = d3.map(stateCounty, d => d.county);
+  countyNameMap = d3.map(stateCounty, d => d.countyName);
+  stateMap = d3.map(stateCounty, d => d.stateName);
+  eventMap = d3.map(events, d => d.title);
+  initChart();
+}
+
+let initChart = () => {
+  stateSelect = d3.select('#states select');
+  stateSelect.selectAll('option')
+    .data(stateNameArray.sort((a,b) => (a[4] - b[4])), d => d[2])
+    .enter().append('option')
+    .attr('value', d => d[0])
+    .text(d => d[0]);
+  stateSelect.on('change', function(){
+    let s = this.value;
+    countySelect.node().selectedIndex = 0;
+    let select = countySelect.selectAll('option')
+      .data(countyByState[s]);
+    let enter = select.enter().append('option');
+    select.merge(enter)
+      .attr('value', d => d)
+      .text(d => d);
+    select.exit().remove();
+    updateChart();
+  });
+  countySelect = d3.select('#counties select');
+  countySelect.selectAll('option')
+    .data(countyByState['Alabama'])
+    .enter().append('option')
+    .attr('value', d => d)
+    .text(d => d);
+  countySelect.on('change', function(){
+    updateChart();
+  });
+  yearSelect = d3.select('#year select');
+  yearSelect.selectAll('option')
+    .data(d3.range(1995,2016))
+    .enter().append('option')
+    .attr('value', d => d)
+    .text(d => d);
+  yearSelect.on('change', function(){
+    chartG.select('.year-line.selected').classed('selected', false);
+    chartG.select('.year-text.selected').classed('selected', false);
+    chartG.select('.year-text.year-'+this.value).classed('selected', true);
+    let selectedLine = chartG.select('.year-line.year-'+this.value);
+    selectedLine.classed('selected', true);
+    selectedLine.remove();
+    chartG.node().appendChild(selectedLine.node());
+  });
+  yearSelect.node().selectedIndex = 20;
+  // chartG.select('.year-line.year-2015').classed('selected', true);
+  toggleAvg = d3.select('.toggle.average')
+  toggleYear = d3.select('.toggle.year')
+    .on('click', function() {
+      toggleAvg.classed('active', false);
+      toggleYear.classed('active', true);
+      updateChart();
+    });
+  toggleAvg.on('click', function() {
+      toggleYear.classed('active', false);
+      toggleAvg.classed('active', true);
+      updateChart();
+    });
+  // drawAvg(nestStateAvg['Alabama'], 'Alabama', true);
+  drawYears(nestDataStates['Alabama'], 'Alabama', true);
+};
+
+let updateChart = () => {
+  let type = toggleYear.classed('active') ? 'years' : 'average';
+  let county = countySelect.node().value;
+  let state = stateSelect.node().value;
+  if (type == 'average') {
+    d3.select('#dropdown-c').style('opacity', 0);
+  } else {
+    d3.select('#dropdown-c').style('opacity', 1);
+  }
+  let allCounties = county == 'All Counties';
+  if (type == 'years') {
+    drawYears(allCounties ? nestDataStates[state] : nestData[countyNameMap['$'+county]['county']],
+      allCounties ? state : countyNameMap['$'+county]['county'], allCounties);
+  } else {
+    let d = allCounties ? nestStateAvg[state] : nestCountyAvg[countyNameMap['$'+county]['county']];
+    drawAvg(d, allCounties ? state : countyNameMap['$'+county]['county'], allCounties);
+  }
+};
+
+let yearScale = d3.scaleLinear().range([0,1200]).domain([1995,2015]);
+
+let drawYears = (data, id, isState) => {
+  let avgData = isState ? nestStateAvg[id] : nestCountyAvg[id];
+
+  let avgSelect  = chartG.selectAll('.avg-area,.avg-line')
+    .transition()
+    .duration(700)
+    .style('opacity', 0)
+    .on('end', function() {
+      d3.select(this).remove();
+    });
+
+  yScale.domain(data.extent);
+  let select = chartG.selectAll('.year-line')
+    .data(data.years, d => d.key);
+  let enter = select.enter()
+    .append('path')
+    .attr('class', d => ('year-line year-'+d.key))
+    .attr('d', avgFxn(avgData));
+  let merge = enter.merge(select);
+  merge.transition()
+    .duration(1e3)
+    .delay(d => yearScale(+d.key))
+    .attr('d', d => lineFxn(d.values));
+  select = chartG.selectAll('.year-text')
+    .data(data.years, d => d.key);
+  enter = select.enter()
+    .append('text')
+    .attr('class', d => ('year-text year-'+d.key))
+    .attr('x', width - margin.dx)
+    .attr('dx', 5)
+    .attr('dy', '0.3em')
+    .attr('y', yScale(avgData[avgData.length-1].median))
+    .text(d => d.key);
+  merge = enter.merge(select)
+  merge.transition()
+    .duration(1e3)
+    .delay(d => yearScale(+d.key))
+    .attr('y', d => yScale(d.values[d.values.length-1].births));
+
+  yAxisG.transition()
+    .delay(300)
+    .duration(1900)
+    .call(yAxis);
+
+  chartG.select('.year-text.year-'+yearSelect.node().value).classed('selected', true);
+  let selectedLine = chartG.select('.year-line.year-'+yearSelect.node().value);
+  selectedLine.classed('selected', true);
+  selectedLine.remove();
+  chartG.node().appendChild(selectedLine.node());
+};
+
+let drawAvg = (data, id, isState) => {
+  yScale.domain(isState ? nestDataStates[id].extent : nestData[id].extent);
+
+  let lineSelect  = chartG.selectAll('.year-line')
+    .transition()
+    .duration(700)
+    .delay(d => yearScale(+d.key)/2)
+    .attr('d', avgFxn(data))
+    .on('end', function() {
+      d3.select(this).remove();
+    });
+
+  let textSelect  = chartG.selectAll('.year-text')
+    .transition()
+    .duration(700)
+    .delay(d => yearScale(+d.key)/2)
+    .attr('y', yScale(data[data.length-1].median))
+    .style('opacity', 0)
+    .on('end', function() {
+      d3.select(this).remove();
+    });
+
+  let select = chartG.selectAll('.avg-area')
+    .data([data], d => d.month);
+  let enter = select.enter()
+    .append('path')
+    .attr('class', 'avg-area')
+    .attr('d', d => areaFxn(d));
+  enter.style('opacity', 0)
+    .transition()
+    .delay(700)
+    .duration(1000)
+    .style('opacity', 1);
+  select
+    .transition()
+    .duration(700)
+    .attr('d', d => areaFxn(d));
+  select = chartG.selectAll('.avg-line')
+    .data([data], d => d.month);
+  enter = select.enter()
+    .append('path')
+    .attr('class', 'avg-line')
+    .attr('d', d => avgFxn(d));
+  enter.style('opacity', 0)
+    .transition()
+    .delay(700)
+    .duration(1000)
+    .style('opacity', 1);
+  select
+    .transition()
+    .duration(700)
+    .attr('d', d => avgFxn(d));
+
+  yAxisG.transition()
+    .delay(300)
+    .duration(1200)
+    .call(yAxis);
+}
+
+Promise.all([
+  d3.csv('data/condensed_births.csv',
+    d => {
+      d.date = parseTime(d['Date']);
+      d.month = parseMonth(d.date);
+      d.year = parseYear(d.date);
+      d.births = parseFloat(d.Births);
+      d.county = parseInt(d.County);
+      return d;
+    }),
+  d3.csv('data/countyAverages.csv',
+    d => {
+      d.county = parseInt(d.County);
+      d.month = parseMonth(parseMonthOnly(d.M));
+      d.median = parseFloat(d.median);
+      d.low = +d.low;
+      d.high = +d.high;
+      d.values = +d.median;
+      return d;
+    }),
+  d3.csv('data/state_data.csv',
+    d => {
+      d.date = parseTime(d['Date']);
+      d.month = parseMonth(d.date);
+      d.year = parseYear(d.date);
+      d.births = parseFloat(d.stateBirths);
+      d.states = stateNameMap.get(d.state_id)[0];
+      d.dayAvg = parseFloat(d.dayAvg);
+      return d;
+    }),
+  d3.csv('data/stateAverages.csv',
+    d => {
+      d.states = d.states;
+      d.month = parseMonth(parseMonthOnly(d.M));
+      d.median = parseFloat(d.median);
+      d.low = parseFloat(d.low);
+      d.high = parseFloat(d.high);
+      d.values = parseFloat(d.median);
+      return d;
+    }),
+  d3.csv('data/stateCountyNames.csv',
+    d => {
+      d.county = parseInt(d.County);
+      d.countyName = d.County_Name;
+      return d;
+    }),
+]).then(function(datasets) {
+  allData = datasets[0];
+  countyAverages = datasets[1];
+  stateData = datasets[2];
+  stateAverages = datasets[3];
+  stateCounty = datasets[4];
+  handleData();
+});
+
+</script>
+</body>

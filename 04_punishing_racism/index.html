@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+  .header {
+    width: 100%;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-justify-content: center;
+    justify-content: center;
+    margin-bottom: 21px;
+    max-width: 1000px;
+    margin: 0 auto;
+    margin-top: 18px;
+    margin-bottom: 18px;
+    position: relative;
+    pointer-events: all;
+  }
+  .chart-container {
+    position: relative;
+    margin: 0 auto;
+  }
+  .racial-group-white_men .square {
+    fill: rgb(255, 204, 51);
+  }
+  .racial-group-black_men .square {
+    fill: rgb(51, 204, 255);
+  }
+  .economic-group path {
+    stroke: #aaa;
+    fill: none;
+    opacity: 0.1;
+  }
+  .economic-group rect {
+    fill: #ddd;
+  }
+  .economic-counter .count {
+    font-size: 20px;
+    text-anchor: end;
+  }
+  .economic-counter .count.count-white_men,
+  .economic-counter .bar.bar-white_men {
+    fill: rgb(255, 204, 51);
+  }
+  .economic-counter .count.count-black_men,
+  .economic-counter .bar.bar-black_men {
+    fill: rgb(51, 204, 255);
+  }
+  .economic-counter .percent {
+    font-size: 12px;
+    text-anchor: end;
+  }
+  .group-label {
+    text-anchor: end;
+    font-size: 10px;
+    fill: #333;
+  }
+  .economic-label {
+    fill: #333;
+    stroke:#fff;
+    font-size: 14px;
+    text-anchor: end;
+    stroke-width:3px;
+    stroke-linecap:butt;
+    stroke-linejoin:round;
+    paint-order: stroke;
+  }
+  .story-description {
+    font-size: 12px;
+    font-weight: 600;
+    fill: #333;
+  }
+</style>
+<body>
+<!-- <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Open+Sans" /> -->
+<link rel="stylesheet" href="vendor/bootstrap.css">
+<link rel="stylesheet" href="vendor/bootstrap-theme.css">
+
+<main>
+  <div class="col-md-12" id="title-header">
+    <div class="header" style="width: 40%;">
+      <h1>Extensive Data Shows Punishing Reach of Racism for Black Boys</h1>
+    </div>
+  </div>
+  <div class="col-md-12 panel">
+    <div class="chart-container" id="vis">
+    </div>
+  </div>
+</main>
+
+<script src="vendor/d3.min.js"></script>
+<script src="vendor/jquery.min.js"></script>
+<script src="vendor/bootstrap.min.js"></script>
+<script src="data.js"></script>
+<script>
+
+const width = 960,
+    height = 640;
+
+const yellow = 'rgb(255, 204, 51)';
+const blue = 'rgb(51, 204, 255)';
+const percentFormat = d3.format('.0%');
+const decimalFormat = d3.format(',.0f');
+
+let margin = {l:40,r:160,t:120,b:40};
+margin.dx = margin.r + margin.l;
+margin.dy = margin.t + margin.b;
+let availW = width - margin.dx;
+let xPos = [0, availW*0.22, availW*0.42, availW*0.68, availW];
+let yScale = d3.scaleBand().range([0,height - margin.dx]).domain([5,4,3,2,1]).paddingInner(0.3);
+let labels = {1: 'Poor adult', 2: 'Lower-middle-class adult', 3: 'Middle-class adult', 4: 'Upper-middle-class adult', 5: 'Rich adult'};
+let totalCount = 0;
+let whiteCount = 0;
+let blackCount = 0;
+
+const pathFxn = (d) => {
+  let y0 = yScale(5), y1 = yScale(d.kid_q);
+  return 'M'+xPos[0]+','+y0+' L'+xPos[1]+','+y0
+    +' C'+xPos[2]+','+y0+' '+xPos[2]+','+y1+' '+xPos[3]+','+y1
+    +' L'+xPos[4]+','+y1;
+};
+
+const tangentFxn = (p0, p1, p2, p3) => {
+  let x0 = p1[0] - p0[0], x1 = p2[0] - p1[0], x2 = p3[0] - p2[0];
+  let y0 = p1[1] - p0[1], y1 = p2[1] - p1[1], y2 = p3[1] - p2[1];
+  console.log(p0, p1, p2, p3)
+  return (t) => {
+    let c0 = 3 * (1 - t) * (1 - t), c1 = 6 * (1 - t) * t, c2 = 3 * t * t;
+    let x = c0 * x0 + c1 * x1 + c2 * x2;
+    let y = c0 * y0 + c1 * y1 + c2 * y2;
+    let u = Math.sqrt(x*x + y*y)
+    return {'x': -y/u, 'y': x/u};
+  };
+};
+
+const translateAlong = (path, delta) => {
+  let l = path.getTotalLength();
+  return (t) => {
+    let p = path.getPointAtLength(t*l);
+    if(p.x < xPos[1] || p.x > xPos[3]) {
+      return 'translate('+[p.x,p.y+delta]+')';
+    } else {
+      let ut = (p.x - xPos[1]) / (xPos[3] - xPos[1]);
+      let n = path.getNormal(ut);
+      return 'translate('+[p.x+n.x*delta,p.y+n.y*delta]+')'
+    }
+  };
+};
+
+const handleData = () => {
+  dataByParent.forEach(p => {
+    for(let k = 0; k < 5; k++) {
+      let white = p.values[0].values[k];
+      white.squares = d3.range(0, Math.round(white.value*2.5e3)).map(d => Math.random()*2.5e3);
+      white.count = {'white_men': 0, 'black_men': 0};
+      let black = p.values[1].values[k];
+      black.squares = d3.range(0, Math.round(black.value*2.5e3)).map(d => Math.random()*2.5e3);
+    }
+  });
+}
+
+const initChart = () => {
+  let enter = axisG.selectAll('.economic-group')
+    .data(dataByParent[4].values[0].values, d => d.kid_q)
+    .enter().append('g')
+    .attr('class', d => ('economic-group economic-group-'+d.kid_q));
+  enter.append('path')
+    .attr('class', 'pipeline')
+    .style('stroke', '#aaa')
+    .style('fill', 'none')
+    .style('stroke-width', yScale.bandwidth())
+    .style('opacity', 0.1)
+    .attr('d', pathFxn);
+  enter.append('path')
+    .style('opacity', 0)
+    .attr('id', d => 'interpolation-path-'+d.kid_q)
+    .attr('class', 'interpolation-path')
+    .attr('d', pathFxn)
+    .each(function(d) {
+      let y0 = yScale(5), y1 = yScale(d.kid_q);
+      this.getNormal = tangentFxn([xPos[1],y0],[xPos[2],y0],[xPos[2],y1],[xPos[3],y1]);
+    });
+  enter.append('rect')
+    .attr('width', 16)
+    .attr('height', yScale.bandwidth())
+    .attr('transform', d => ('translate('+[xPos[4], yScale(d.kid_q)-yScale.bandwidth()/2]+')'));
+
+  enter = annotG.selectAll('.economic-counter')
+    .data(dataByParent[4].values[0].values, d => d.kid_q)
+    .enter().append('g')
+    .attr('class', d => ('economic-counter economic-counter-'+d.kid_q))
+    .attr('transform', d => ('translate('+[xPos[4],yScale(d.kid_q)]+')'));
+
+  enter.append('text')
+    .attr('class', 'economic-label')
+    .attr('x', -10)
+    .attr('dy', '0.3em')
+    .text(d => labels[d.kid_q]);
+  enter.append('text')
+    .attr('class', 'count count-white_men')
+    .attr('x', 86)
+    .attr('y', -2)
+    .text('0');
+  enter.append('text')
+    .attr('class', 'percent percent-white_men')
+    .attr('x', 86)
+    .attr('y', 18)
+    .text('0%');
+  enter.append('text')
+    .attr('class', 'count count-black_men')
+    .attr('x', 152)
+    .attr('y', -2)
+    .text('0');
+  enter.append('text')
+    .attr('class', 'percent percent-black_men')
+    .attr('x', 152)
+    .attr('y', 18)
+    .text('0%');
+
+  enter.append('rect')
+    .attr('class', 'bar bar-white_men')
+    .attr('width', 16)
+    .attr('height', 0)
+    .attr('transform', 'translate(0,'+(-yScale.bandwidth()/2)+')');
+  enter.append('rect')
+    .attr('class', 'bar bar-black_men')
+    .attr('width', 16)
+    .attr('height', 0)
+    .attr('transform', 'translate(0,'+(-yScale.bandwidth()/2)+')');
+
+  annotG.append('text')
+    .attr('x', 14)
+    .attr('dy', '0.3em')
+    .attr('class', 'economic-label')
+    .style('text-anchor', 'start')
+    .text('Grew up rich');
+  let story = annotG.append('text')
+    .attr('class', 'story-description')
+    .attr('y', -64)
+    .attr('x', 14);
+  story.append('tspan')
+    .attr('id', 'total-count')
+    .text('Follow the lives of boys who');
+  story.append('tspan')
+    .attr('x', 14)
+    .attr('dy', '1.1em')
+    .text('grew up in rich families...');
+  story = annotG.append('text')
+    .attr('class', 'story-description')
+    .attr('y', -64)
+    .attr('x', width - margin.l - 6)
+    .style('text-anchor', 'end');
+  story.append('tspan')
+    .text('...and see where they end');
+  story.append('tspan')
+    .attr('x', width - margin.l - 6)
+    .attr('dy', '1.1em')
+    .text('up as adults:');
+  annotG.append('text')
+    .attr('class', 'group-label')
+    .attr('y', -30)
+    .attr('x', width - margin.l - 6)
+    .text('BLACK MEN');
+  annotG.append('text')
+    .attr('class', 'group-label')
+    .attr('y', -30)
+    .attr('x', width - margin.l - 76)
+    .text('WHITE MEN');
+};
+
+const drawSquares = () => {
+  let enter = chartG.selectAll('.racial-group')
+    .data(dataByParent[4].values, d => d.key)
+    .enter().append('g')
+    .attr('class', d => ('racial-group racial-group-'+d.key));
+
+  enter = enter.selectAll('.sqaure-group')
+    .data(d => d.values, d => d.kid_q)
+    .enter().append('g')
+    .attr('class', d => ('sqaure-group sqaure-group-'+d.kid_q));
+
+  enter = enter.selectAll('.square')
+    .data(d => d.squares)
+    .enter().append('rect')
+    .attr('class', 'square')
+    .attr('width', 6)
+    .attr('height', 6)
+    .transition()
+    .duration((d,i) => (7e3 + Math.random()*2e3))
+    .ease(d3.easeLinear)
+    .delay((d,i) => d*30)
+    .attrTween('transform', function(d) {
+      let id = this.parentNode.__data__.kid_q;
+      let delta = -6 + yScale.bandwidth()/2 - Math.random()*(yScale.bandwidth()-6);
+      return translateAlong(axisG.select('#interpolation-path-'+id).node(), delta)
+    })
+    .on('start', function() {
+      totalCount++;
+      d3.select('#total-count').text('Follow the lives of '+decimalFormat(totalCount)+' boys who');
+    })
+    .on('end', function(d) {
+      let id = this.parentNode.__data__.kid_q;
+      let group = this.parentNode.parentNode.__data__.key;
+      d3.select(this).remove();
+      let g = annotG.select('.economic-counter-'+id);
+      let c = g.select('.count-'+group);
+      let p = g.select('.percent-'+group);
+      // console.log(c.data())
+      let count = c.data()[0].count[group]++;
+      if(group == 'white_men') {
+        whiteCount++;
+      } else {
+        blackCount++;
+      }
+      c.text(decimalFormat(count));
+      p.text(percentFormat(count/(group == 'white_men'? whiteCount : blackCount)));
+
+      let h = yScale.bandwidth();
+      let t = c.data()[0].count['white_men'] + c.data()[0].count['black_men'];
+      let wh = c.data()[0].count['white_men'] / t * h;
+      let bh = h - wh;
+      g.select('.bar-black_men').attr('y', wh).attr('height', bh);
+      g.select('.bar-white_men').attr('height', wh);
+    });
+
+}
+
+svg = d3.select('#vis')
+    .style('width', width+'px')
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height);
+
+transG = svg.append('g')
+    .attr('class', 'trans-group')
+    .attr('transform', 'translate('+[margin.l, margin.t]+')');
+axisG = transG.append('g')
+    .attr('class', 'axis-group');
+chartG = transG.append('g')
+    .attr('class', 'chart-group');
+annotG = transG.append('g')
+    .attr('class', 'annotation-group');
+
+handleData();
+initChart();
+drawSquares();
+
+</script>
+</body>

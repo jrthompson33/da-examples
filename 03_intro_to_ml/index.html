@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+  .header {
+    width: 100%;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-justify-content: center;
+    justify-content: center;
+    margin-bottom: 21px;
+    max-width: 1000px;
+    margin: 0 auto;
+    margin-top: 18px;
+    margin-bottom: 18px;
+    position: relative;
+    pointer-events: all;
+  }
+  .chart-container {
+    position: relative;
+    margin: 0 auto;
+  }
+</style>
+<body>
+<!-- <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Open+Sans" /> -->
+<link rel="stylesheet" href="vendor/bootstrap.css">
+<link rel="stylesheet" href="vendor/bootstrap-theme.css">
+
+<main>
+  <div class="col-md-12" id="title-header">
+    <div class="header">
+      <h1>A Visual Introduction to Machine Learning - Part 1</h1>
+    </div>
+  </div>
+  <div class="col-md-12 panel">
+    <div class="chart-container" id="vis">
+    </div>
+  </div>
+</main>
+
+<script src="vendor/d3.min.js"></script>
+<script src="vendor/jquery.min.js"></script>
+<script src="vendor/bootstrap.min.js"></script>
+<script src="data.js"></script>
+<script>
+
+const width = 820,
+    height = 720;
+
+const green = 'rgb(65, 153, 43)';
+const blue = 'rgb(16, 70, 131)';
+
+
+const drawTrainBinned = () => {
+  let nySet = data.training_set.filter(d => d.target == 0)
+  let sfSet = data.training_set.filter(d => d.target == 1)
+  let select = chartG.selectAll('.dot')
+    .data(nySet, d => d.index);
+  let enter = select.enter().append('circle')
+    .attr('class', 'dot')
+    .style('fill', blue)
+    .style('stroke', blue)
+    .attr('cx', (d,i) => (-300 + Math.floor(i/5)*5.5 + (i%5)*3))
+    .attr('cy', (d,i) => (520 + (4-(i%5))*5.5))
+    .attr('r', 2)
+  select = chartG.selectAll('.dot')
+    .data(sfSet, d => d.index);
+  enter = select.enter().append('circle')
+    .attr('class', 'dot')
+    .style('fill', green)
+    .style('stroke', green)
+    .attr('cx', (d,i) => ((250 - Math.floor(i/5)*5.5 + (i%5)*-3)))
+    .attr('cy', (d,i) => (520 + ((4-(i%5))*5.5)))
+    .attr('r', 2)
+};
+
+const drawTestBinned = () => {
+    console.log(data.test_set);
+    let nySet = data.test_set.filter(d => d.target == 0)
+    let sfSet = data.test_set.filter(d => d.target == 1)
+    let select = chartG.selectAll('.dot')
+      .data(nySet, d => d.index);
+    let enter = select.enter().append('circle')
+      .attr('class', 'dot')
+      .style('fill', blue)
+      .style('stroke', blue)
+      .attr('cx', (d,i) => (-100 + Math.floor(i/5)*5.5 + (i%5)*3))
+      .attr('cy', (d,i) => (600 + (4-(i%5))*5.5))
+      .attr('r', 2)
+    select = chartG.selectAll('.dot')
+      .data(sfSet, d => d.index);
+    enter = select.enter().append('circle')
+      .attr('class', 'dot')
+      .style('fill', green)
+      .style('stroke', green)
+      .attr('cx', (d,i) => (250 + (250 - Math.floor(i/5)*5.5 + (i%5)*-3)))
+      .attr('cy', (d,i) => (600 + ((4-(i%5))*5.5)))
+      .attr('r', 2)
+};
+
+// Target = 1 -> SF (129 actual, 117 correct, 13 false positives)
+// Target = 0 -> NY (113 actual, 100, 12 false positives)
+
+const drawTree = () => {
+  root = d3.hierarchy(data.tree_data);
+  tree = d3.tree().nodeSize([36, 44]);
+  // root.x0 = 125;
+  // root.y0 = 0;
+  tree(root);
+  let nodes = root.descendants();
+  let leaves = nodes.filter(d => !d.children);
+  console.log(leaves);
+  chartG.selectAll('.tree-branch')
+    .data(nodes)
+    .enter().append('path')
+    .attr('class', 'tree-branch')
+    .attr('d', d => {
+      let p = d.parent;
+      if(!p) return '';
+      return 'M'+p.x+','+(p.y+10)+'L'+d.x+','+(d.y-20)+'v20';
+    })
+    .style('stroke', '#bbb')
+    .style('fill', 'none');
+
+  chartG.selectAll('.tree-leaf')
+    .data(leaves)
+    .enter().append('rect')
+    .attr('width', 2)
+    .attr('height', 10)
+    .attr('x', d => (d.x-1))
+    .attr('y', d => (d.y-5))
+    .style('fill', d => (d.data.value[0] > 0 ? blue : green));
+
+  nodeMap = {};
+  nodes.forEach(n => {
+    nodeMap[n.data.id] = n;
+  });
+
+  trainingMap = {};
+  data.training_set.forEach(d => {
+    d.points = [[0,0],[0,7]];
+    trainingMap[d.index] = d;
+  })
+  data.training_stats.forEach(s => {
+    if(nodeMap[s.node].children){
+      let fx = nodeMap[s.node].children[0].x, fy = nodeMap[s.node].children[0].y;
+      let tx = nodeMap[s.node].children[1].x, ty = nodeMap[s.node].children[1].y;
+      s.split_location.left_side.forEach(fr => {
+        trainingMap[fr].points.push([fx-3,fy-24]);
+        trainingMap[fr].points.push([fx-3,fy+5]);
+      });
+      s.split_location.right_side.forEach(tr => {
+        trainingMap[tr].points.push([tx+3,ty-24]);
+        trainingMap[tr].points.push([tx+3,ty+5]);
+      });
+    }
+  });
+
+  let shuffle = (a) => {
+    let j, x, i;
+    for (i = a.length - 1; i > 0; i--) {
+        j = Math.floor(Math.random() * (i + 1));
+        x = a[i];
+        a[i] = a[j];
+        a[j] = x;
+    }
+    return a;
+  };
+
+  shuffle(data.training_set);
+
+  let nySet = data.training_set.filter(d => d.target == 0)
+  let sfSet = data.training_set.filter(d => d.target == 1)
+  nySet.forEach((d,i) => d.points.push([(-300 + Math.floor(i/5)*5.5 + (i%5)*3),(480 + (4-(i%5))*5.5)]));
+  sfSet.forEach((d,i) => d.points.push([(320 - Math.floor(i/5)*5.5 + (i%5)*-3),(480 + ((4-(i%5))*5.5))]));
+
+  let line = d3.line()
+    .x(d => d[0])
+    .y(d => d[1]);
+
+  let translateAlong = (path) => {
+    let l = path.getTotalLength();
+    return (t) => {
+      let p = path.getPointAtLength(t*l);
+      return 'translate('+[p.x,p.y]+')';
+    };
+  };
+
+  let select = chartG.selectAll('.interpolation-path')
+    .data(data.training_set, d => d.index);
+  let enter = select.enter().append('path')
+    .attr('class', 'interpolation-path')
+    .attr('id', d => ('interpolation-path-'+d.index))
+    .style('fill', 'none')
+    .style('stroke', d => (d.target == 1 ? green : blue))
+    .style('opacity',0)
+    .attr('d', d => line(d.points));
+
+  select = chartG.selectAll('.dot')
+    .data(data.training_set, d => d.index);
+  enter = select.enter().append('circle')
+    .attr('class', 'dot')
+    .attr('id', d => ('dot-'+d.index))
+    .style('fill', d => (d.target == 1 ? green : blue))
+    .style('stroke', d => (d.target == 1 ? green : blue))
+    .attr('transform', 'translate('+[0,0]+')')
+    .attr('r', 2);
+  enter.transition()
+    .duration(4e3)
+    .ease(d3.easeLinear)
+    .delay((d,i) => i*100)
+    .attrTween('transform', d => translateAlong(chartG.select('#interpolation-path-'+d.index).node()))
+    .on('end', d => {
+      let c = annotG.select('#counter-target-'+d.target);
+      console.log(c.data());
+      let dd = c.data()[0] + 1;
+      console.log(dd);
+      c.data([dd]);
+      c.text(dd+'/'+dd);
+    });
+
+  let counter = annotG.append('g')
+    .attr('class', 'counter-annotation')
+    .attr('transform', 'translate(0,510)');
+  counter.append('path')
+    .attr('d', 'M-320,0h680')
+    .style('stroke', '#ccc')
+    .style('stroke-width', 2)
+    .style('fill', 'none');
+  counter.append('text')
+    .attr('y', -26)
+    .style('font-size', '10px')
+    .style('text-anchor', 'middle')
+    .text('Training Accuracy');
+  counter.append('text')
+    .attr('y', -6)
+    .style('font-size', '14px')
+    .style('text-anchor', 'middle')
+    .text('100%');
+  select = counter.selectAll('.counter-target')
+    .data([0,0]);
+  select.enter().append('text')
+    .attr('y', -6)
+    .attr('x', (d,i) => (i == 0 ? -70 : 70))
+    .attr('id', (d,i) => ('counter-target-'+i))
+    .style('font-size', '14px')
+    .style('text-anchor', 'middle')
+    .style('fill', (d,i) => (i == 0 ? blue : green))
+    .text('')
+};
+
+
+svg = d3.select('#vis')
+    .style('width', width+'px')
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height);
+
+transG = svg.append('g')
+    .attr('class', 'trans-group')
+    .attr('transform', 'translate(410,60)');
+axisG = transG.append('g')
+    .attr('class', 'axis-group');
+chartG = transG.append('g')
+    .attr('class', 'chart-group');
+annotG = transG.append('g')
+    .attr('class', 'annotation-group');
+
+
+// drawTrainBinned();
+drawTree();
+
+</script>
+</body>
